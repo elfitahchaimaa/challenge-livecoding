@@ -75,7 +75,40 @@ public function borrowBook(int $bookId,int $memberId,string $borrowDate):array{
             ];
         }
 }
- 
+ public function returnBook(int $borrowingId,string $returnDate):float{
+    $stmt = $this->db->prepare(
+            "SELECT book_id, due_date FROM borrowings 
+             WHERE id = ? AND return_date IS NULL"
+        );
+    $stmt->execute([$borrowingId]);
+    $borrowing = $stmt->fetch();
+
+    if (!$borrowing) {
+            return 0;
+        }
+
+    $lateFee = 0;
+     if ($returnDate > $borrowing['due_date']) {
+            $daysLate = (strtotime($returnDate) - strtotime($borrowing['due_date'])) / 86400;
+            $lateFee = $daysLate * 0.50;
+        }
+
+    $stmt = $this->db->prepare(
+            "UPDATE borrowings 
+             SET return_date = ?, late_fee = ?
+             WHERE id = ?"
+    );
+
+        $stmt->execute([$returnDate, $lateFee, $borrowingId]);
+
+        $stmt = $this->db->prepare(
+            "UPDATE books SET available_copies = available_copies + 1 WHERE id = ?"
+        );
+        $stmt->execute([$borrowing['book_id']]);
+
+        return $lateFee;
+
+ }
 
 
 }
